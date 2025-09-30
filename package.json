@@ -1,0 +1,19 @@
+{
+  "name": "photo-library",
+  "version": "1.0.0",
+  "description": "A photo library application with event-based organization",
+  "private": true,
+  "packageManager": "pnpm@10.15.1",
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter backend dev\" \"pnpm --filter frontend dev\"",
+    "build": "pnpm --filter backend build && pnpm --filter frontend build",
+    "start": "pnpm --filter backend start",
+    "install-all": "pnpm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "keywords": ["photo", "library", "events", "gallery"],
+  "author": "",
+  "license": "ISC"
+}
