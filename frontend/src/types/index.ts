@@ -104,3 +104,51 @@ export interface LocationPhotosResponse {
   }>;
   photoCount: number;
 }
+
+export interface SearchFilters {
+  q?: string;
+  eventId?: string;
+  startDate?: string;
+  endDate?: string;
+  cameraModel?: string;
+  cameraMake?: string;
+  minIso?: number;
+  maxIso?: number;
+  minFNumber?: number;
+  maxFNumber?: number;
+  focalLength?: number;
+  hasGps?: boolean;
+  fileType?: string;
+  minWidth?: number;
+  maxWidth?: number;
+  minHeight?: number;
+  maxHeight?: number;
+  sortBy?: 'dateTime' | 'filename' | 'size' | 'camera';
+  sortOrder?: 'asc' | 'desc';
+  page?: number;
+  limit?: number;
+}
+
+export interface SearchResult {
+  photos: Array<Photo & { eventName: string }>;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
+  searchQuery: {
+    q?: string;
+    filters: Omit<SearchFilters, 'q' | 'page' | 'limit' | 'sortBy' | 'sortOrder'>;
+    sort: {
+      field: string;
+      order: string;
+    };
+  };
+}
+
+export interface SearchSuggestions {
+  suggestions: string[];
+}

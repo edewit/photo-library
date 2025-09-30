@@ -7,6 +7,7 @@ import path from 'path';
 import eventRoutes from './routes/events';
 import photoRoutes from './routes/photos';
 import placesRoutes from './routes/places';
+import { createSearchIndexes } from './utils/dbIndexes';
 
 dotenv.config();
 
@@ -31,8 +32,11 @@ app.get('/api/health', (req, res) => {
 
 // Connect to MongoDB
 mongoose.connect(MONGODB_URI)
-  .then(() => {
+  .then(async () => {
     console.log('Connected to MongoDB');
+    
+    // Create search indexes for better performance
+    await createSearchIndexes();
     
     // Start server
     app.listen(PORT, () => {

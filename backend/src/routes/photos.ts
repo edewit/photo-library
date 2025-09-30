@@ -141,6 +141,288 @@ router.post('/organize', async (req, res) => {
   }
 });
 
+// Search photos with advanced filtering
+router.get('/search', async (req, res) => {
+  try {
+    const {
+      q, // General search query
+      eventId,
+      startDate,
+      endDate,
+      cameraModel,
+      cameraMake,
+      minIso,
+      maxIso,
+      minFNumber,
+      maxFNumber,
+      focalLength,
+      hasGps,
+      fileType,
+      minWidth,
+      maxWidth,
+      minHeight,
+      maxHeight,
+      sortBy = 'dateTime',
+      sortOrder = 'desc',
+      page = 1,
+      limit = 50
+    } = req.query;
+
+    // Build MongoDB query
+    const query: any = {};
+    const conditions: any[] = [];
+    const textSearchConditions: any[] = [];
+
+    // General text search across multiple fields
+    if (q && typeof q === 'string') {
+      const searchRegex = new RegExp(q, 'i');
+      textSearchConditions.push(
+        { originalName: searchRegex },
+        { filename: searchRegex },
+        { 'metadata.camera.make': searchRegex },
+        { 'metadata.camera.model': searchRegex },
+        { 'metadata.camera.software': searchRegex }
+      );
+    }
+
+    // Event filter
+    if (eventId) {
+      query.eventId = eventId;
+    }
+
+    // Date range filters
+    if (startDate || endDate) {
+      query['metadata.dateTime'] = {};
+      if (startDate) {
+        query['metadata.dateTime'].$gte = new Date(startDate as string);
+      }
+      if (endDate) {
+        query['metadata.dateTime'].$lte = new Date(endDate as string);
+      }
+    }
+
+    // Camera filters
+    if (cameraModel) {
+      query['metadata.camera.model'] = new RegExp(cameraModel as string, 'i');
+    }
+    if (cameraMake) {
+      query['metadata.camera.make'] = new RegExp(cameraMake as string, 'i');
+    }
+
+    // ISO filters
+    if (minIso || maxIso) {
+      query['metadata.settings.iso'] = {};
+      if (minIso) {
+        query['metadata.settings.iso'].$gte = parseInt(minIso as string);
+      }
+      if (maxIso) {
+        query['metadata.settings.iso'].$lte = parseInt(maxIso as string);
+      }
+    }
+
+    // F-Number (aperture) filters
+    if (minFNumber || maxFNumber) {
+      query['metadata.settings.fNumber'] = {};
+      if (minFNumber) {
+        query['metadata.settings.fNumber'].$gte = parseFloat(minFNumber as string);
+      }
+      if (maxFNumber) {
+        query['metadata.settings.fNumber'].$lte = parseFloat(maxFNumber as string);
+      }
+    }
+
+    // Focal length filter
+    if (focalLength) {
+      query['metadata.settings.focalLength'] = parseInt(focalLength as string);
+    }
+
+    // GPS filter
+    if (hasGps !== undefined) {
+      if (hasGps === 'true') {
+        query['metadata.gps.latitude'] = { $exists: true, $ne: null };
+        query['metadata.gps.longitude'] = { $exists: true, $ne: null };
+      } else if (hasGps === 'false') {
+        conditions.push({
+          $or: [
+            { 'metadata.gps.latitude': { $exists: false } },
+            { 'metadata.gps.latitude': null },
+            { 'metadata.gps.longitude': { $exists: false } },
+            { 'metadata.gps.longitude': null }
+          ]
+        });
+      }
+    }
+
+    // File type filter
+    if (fileType) {
+      query['metadata.mimeType'] = new RegExp(fileType as string, 'i');
+    }
+
+    // Dimension filters
+    if (minWidth || maxWidth) {
+      query['metadata.width'] = {};
+      if (minWidth) {
+        query['metadata.width'].$gte = parseInt(minWidth as string);
+      }
+      if (maxWidth) {
+        query['metadata.width'].$lte = parseInt(maxWidth as string);
+      }
+    }
+
+    if (minHeight || maxHeight) {
+      query['metadata.height'] = {};
+      if (minHeight) {
+        query['metadata.height'].$gte = parseInt(minHeight as string);
+      }
+      if (maxHeight) {
+        query['metadata.height'].$lte = parseInt(maxHeight as string);
+      }
+    }
+
+    // Combine all conditions
+    if (textSearchConditions.length > 0) {
+      conditions.push({ $or: textSearchConditions });
+    }
+
+    // If we have multiple conditions, use $and to combine them
+    if (conditions.length > 0) {
+      if (conditions.length === 1) {
+        // If only one condition, merge it directly
+        Object.assign(query, conditions[0]);
+      } else {
+        // Multiple conditions, use $and
+        query.$and = conditions;
+      }
+    }
+
+    // Build sort object
+    const sort: any = {};
+    const sortField = sortBy === 'dateTime' ? 'metadata.dateTime' : 
+                     sortBy === 'filename' ? 'originalName' :
+                     sortBy === 'size' ? 'metadata.size' :
+                     sortBy === 'camera' ? 'metadata.camera.model' :
+                     'metadata.dateTime';
+    
+    sort[sortField] = sortOrder === 'asc' ? 1 : -1;
+
+    // Execute search with pagination
+    const pageNum = Math.max(1, parseInt(page as string));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [photos, totalCount] = await Promise.all([
+      Photo.find(query)
+        .populate('eventId', 'name')
+        .sort(sort)
+        .skip(skip)
+        .limit(limitNum),
+      Photo.countDocuments(query)
+    ]);
+
+    // Format response
+    const formattedPhotos = photos.map(photo => {
+      const populatedEvent = photo.eventId as any;
+      return {
+        id: photo.id,
+        filename: photo.filename,
+        originalName: photo.originalName,
+        thumbnailPath: photo.thumbnailPath,
+        filePath: photo.filePath,
+        eventId: populatedEvent._id || populatedEvent,
+        eventName: populatedEvent.name || 'Unknown Event',
+        metadata: photo.metadata,
+        createdAt: photo.createdAt,
+        updatedAt: photo.updatedAt
+      };
+    });
+
+    res.json({
+      photos: formattedPhotos,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: totalCount,
+        totalPages: Math.ceil(totalCount / limitNum),
+        hasNext: pageNum < Math.ceil(totalCount / limitNum),
+        hasPrev: pageNum > 1
+      },
+      searchQuery: {
+        q,
+        filters: {
+          eventId,
+          startDate,
+          endDate,
+          cameraModel,
+          cameraMake,
+          minIso,
+          maxIso,
+          minFNumber,
+          maxFNumber,
+          focalLength,
+          hasGps,
+          fileType,
+          minWidth,
+          maxWidth,
+          minHeight,
+          maxHeight
+        },
+        sort: { field: sortBy, order: sortOrder }
+      }
+    });
+  } catch (error) {
+    console.error('Error searching photos:', error);
+    res.status(500).json({ error: 'Failed to search photos' });
+  }
+});
+
+// Get search suggestions (for autocomplete)
+router.get('/search/suggestions', async (req, res) => {
+  try {
+    const { type, q } = req.query;
+
+    if (!type || !q) {
+      return res.status(400).json({ error: 'Type and query parameters are required' });
+    }
+
+    const searchRegex = new RegExp(q as string, 'i');
+    let suggestions: string[] = [];
+
+    switch (type) {
+      case 'camera':
+        const cameras = await Photo.distinct('metadata.camera.model', {
+          'metadata.camera.model': { $regex: searchRegex, $ne: null }
+        });
+        suggestions = cameras.filter(Boolean).slice(0, 10) as string[];
+        break;
+
+      case 'make':
+        const makes = await Photo.distinct('metadata.camera.make', {
+          'metadata.camera.make': { $regex: searchRegex, $ne: null }
+        });
+        suggestions = makes.filter(Boolean).slice(0, 10) as string[];
+        break;
+
+      case 'filename':
+        const filenames = await Photo.find({
+          $or: [
+            { originalName: searchRegex },
+            { filename: searchRegex }
+          ]
+        }).select('originalName').limit(10);
+        suggestions = filenames.map(p => p.originalName);
+        break;
+
+      default:
+        return res.status(400).json({ error: 'Invalid suggestion type' });
+    }
+
+    res.json({ suggestions });
+  } catch (error) {
+    console.error('Error getting search suggestions:', error);
+    res.status(500).json({ error: 'Failed to get suggestions' });
+  }
+});
+
 // Get single photo
 router.get('/:id', async (req, res) => {
   try {

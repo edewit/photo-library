@@ -8,6 +8,7 @@ import { HomePage } from './pages/HomePage';
 import { EventPage } from './pages/EventPage';
 import { PhotoPage } from './pages/PhotoPage';
 import { PlacesPage } from './pages/PlacesPage';
+import { SearchPage } from './pages/SearchPage';
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
             <div style={{ flex: 1 }}>
               <Routes>
                 <Route path="/" element={<HomePage />} />
+                <Route path="/search" element={<SearchPage />} />
                 <Route path="/places" element={<PlacesPage />} />
                 <Route path="/events/:id" element={<EventPage />} />
                 <Route path="/photos/:id" element={<PhotoPage />} />

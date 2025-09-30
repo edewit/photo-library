@@ -17,7 +17,7 @@ import {
   NavList,
   NavItem,
 } from '@patternfly/react-core';
-import { MoonIcon, SunIcon, CalendarAltIcon, MapIcon } from '@patternfly/react-icons';
+import { MoonIcon, SunIcon, CalendarAltIcon, MapIcon, SearchIcon } from '@patternfly/react-icons';
 import { useTheme } from '../hooks/useTheme';
 
 export const AppHeader: React.FC = () => {
@@ -26,6 +26,7 @@ export const AppHeader: React.FC = () => {
   const navigate = useNavigate();
 
   const isEventsPage = location.pathname === '/' || location.pathname.startsWith('/events');
+  const isSearchPage = location.pathname === '/search';
   const isPlacesPage = location.pathname === '/places';
 
   return (
@@ -58,6 +59,18 @@ export const AppHeader: React.FC = () => {
                           <CalendarAltIcon />
                         </FlexItem>
                         <FlexItem>Events</FlexItem>
+                      </Flex>
+                    </NavItem>
+                    <NavItem 
+                      isActive={isSearchPage}
+                      onClick={() => navigate('/search')}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <Flex alignItems={{ default: 'alignItemsCenter' }}>
+                        <FlexItem spacer={{ default: 'spacerXs' }}>
+                          <SearchIcon />
+                        </FlexItem>
+                        <FlexItem>Search</FlexItem>
                       </Flex>
                     </NavItem>
                     <NavItem 

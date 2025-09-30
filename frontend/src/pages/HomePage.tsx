@@ -15,6 +15,7 @@ import { PlusIcon } from '@patternfly/react-icons';
 import { EventGrid } from '../components/EventGrid';
 import { PhotoUpload } from '../components/PhotoUpload';
 import { EventSuggestions } from '../components/EventSuggestions';
+import { QuickSearch } from '../components/QuickSearch';
 import { useEvents } from '../hooks/useEvents';
 import { UploadResponse } from '../types';
 
@@ -56,6 +57,9 @@ export const HomePage: React.FC = () => {
       </PageSection>
 
       <PageSection>
+        <div style={{ marginBottom: '1.5rem' }}>
+          <QuickSearch />
+        </div>
         <EventGrid events={events} loading={loading} />
       </PageSection>
 

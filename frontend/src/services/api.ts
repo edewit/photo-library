@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Event, Photo, EventSuggestion, UploadResponse, PlacesResponse, LocationPhotosResponse } from '../types';
+import { Event, Photo, EventSuggestion, UploadResponse, PlacesResponse, LocationPhotosResponse, SearchFilters, SearchResult, SearchSuggestions } from '../types';
 
 const api = axios.create({
   baseURL: '/api',
@@ -53,6 +53,21 @@ export const photosAPI = {
     
   delete: (id: string): Promise<void> => 
     api.delete(`/photos/${id}`).then(res => res.data),
+    
+  search: (filters: SearchFilters): Promise<SearchResult> => {
+    const params = new URLSearchParams();
+    
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        params.append(key, value.toString());
+      }
+    });
+    
+    return api.get(`/photos/search?${params.toString()}`).then(res => res.data);
+  },
+  
+  getSuggestions: (type: 'camera' | 'make' | 'filename', query: string): Promise<SearchSuggestions> =>
+    api.get(`/photos/search/suggestions?type=${type}&q=${encodeURIComponent(query)}`).then(res => res.data),
     
   getFileUrl: (photoIdOrFilename: string): string => `/api/photos/file/${photoIdOrFilename}`,
   getThumbnailUrl: (photoIdOrFilename: string): string => `/api/photos/thumbnail/${photoIdOrFilename}`,
