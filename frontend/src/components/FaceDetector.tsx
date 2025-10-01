@@ -264,31 +264,34 @@ export const FaceDetector: React.FC<FaceDetectorProps> = ({
 
   return (
     <div>
-      {/* Image */}
-      <img
-        ref={imageRef}
-        src={imageUrl}
-        alt={photo.originalName}
-        style={{ maxWidth: '100%', height: 'auto' }}
-        onLoad={() => {
-          // Auto-detect faces if already processed
-          if (photo.metadata.faces?.detected && photo.metadata.faces.count > 0) {
-            setDetectedFaces(photo.metadata.faces.data);
-          }
-        }}
-      />
-      
-      {/* Canvas overlay for bounding boxes */}
-      <canvas
-        ref={canvasRef}
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          pointerEvents: 'none',
-          display: showBoxes ? 'block' : 'none'
-        }}
-      />
+      {/* Image container with relative positioning for canvas overlay */}
+      <div style={{ position: 'relative', display: 'inline-block' }}>
+        {/* Image */}
+        <img
+          ref={imageRef}
+          src={imageUrl}
+          alt={photo.originalName}
+          style={{ maxWidth: '100%', height: 'auto', display: 'block' }}
+          onLoad={() => {
+            // Auto-detect faces if already processed
+            if (photo.metadata.faces?.detected && photo.metadata.faces.count > 0) {
+              setDetectedFaces(photo.metadata.faces.data);
+            }
+          }}
+        />
+        
+        {/* Canvas overlay for bounding boxes */}
+        <canvas
+          ref={canvasRef}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            pointerEvents: 'none',
+            display: showBoxes ? 'block' : 'none'
+          }}
+        />
+      </div>
 
       {/* Controls */}
       <div style={{ marginTop: '1rem' }}>
