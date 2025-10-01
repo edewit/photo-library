@@ -58,7 +58,39 @@ export const PhotoViewer: React.FC<PhotoViewerProps> = ({ photo }) => {
   };
 
   const handleBack = () => {
-    if (eventId) {
+    const fromSearch = searchParams.get('fromSearch') === 'true';
+    
+    if (fromSearch) {
+      // If we came from search, go back to search with preserved parameters
+      const searchQuery = searchParams.get('searchQuery');
+      const searchFilters = searchParams.get('searchFilters');
+      
+      let searchUrl = '/search';
+      const params = new URLSearchParams();
+      
+      if (searchQuery) {
+        params.set('q', searchQuery);
+      }
+      
+      if (searchFilters) {
+        try {
+          const filters = JSON.parse(searchFilters);
+          Object.entries(filters).forEach(([key, value]) => {
+            if (value !== undefined && value !== null && value !== '') {
+              params.set(key, String(value));
+            }
+          });
+        } catch (e) {
+          console.error('Failed to parse search filters:', e);
+        }
+      }
+      
+      if (params.toString()) {
+        searchUrl += `?${params.toString()}`;
+      }
+      
+      navigate(searchUrl);
+    } else if (eventId) {
       navigate(`/events/${eventId}`);
     } else {
       navigate('/');
@@ -70,7 +102,7 @@ export const PhotoViewer: React.FC<PhotoViewerProps> = ({ photo }) => {
       <Flex className="pf-u-mb-lg">
         <FlexItem>
           <Button variant="link" icon={<ArrowLeftIcon />} onClick={handleBack}>
-            Back to {eventId ? 'Event' : 'Events'}
+            Back to {searchParams.get('fromSearch') === 'true' ? 'Search' : eventId ? 'Event' : 'Events'}
           </Button>
         </FlexItem>
       </Flex>

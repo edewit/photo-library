@@ -630,6 +630,27 @@ export const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
                 <PhotoGrid 
                   photos={searchResult.photos} 
                   loading={false}
+                  searchContext={{
+                    query: filters.q || '',
+                    filters: {
+                      eventId: filters.eventId,
+                      startDate: filters.startDate,
+                      endDate: filters.endDate,
+                      cameraModel: filters.cameraModel,
+                      cameraMake: filters.cameraMake,
+                      minIso: filters.minIso,
+                      maxIso: filters.maxIso,
+                      fileType: filters.fileType,
+                      hasGps: filters.hasGps,
+                      hasFaces: filters.hasFaces,
+                      minFaces: filters.minFaces,
+                      maxFaces: filters.maxFaces,
+                      personId: filters.personId,
+                      personName: filters.personName,
+                      sortBy: filters.sortBy,
+                      sortOrder: filters.sortOrder
+                    }
+                  }}
                 />
                 
                 {/* Pagination */}

@@ -26,9 +26,13 @@ interface PhotoGridProps {
   loading?: boolean;
   eventId?: string;
   onCoverPhotoChange?: () => void;
+  searchContext?: {
+    query: string;
+    filters: Record<string, any>;
+  };
 }
 
-export const PhotoGrid: React.FC<PhotoGridProps> = ({ photos, loading, eventId, onCoverPhotoChange }) => {
+export const PhotoGrid: React.FC<PhotoGridProps> = ({ photos, loading, eventId, onCoverPhotoChange, searchContext }) => {
   const navigate = useNavigate();
   const { addToast } = useToast();
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
@@ -117,7 +121,31 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({ photos, loading, eventId, 
                 </div>
               )}
               <div
-                onClick={() => navigate(`/photos/${photo.id}${eventId ? `?eventId=${eventId}` : ''}`)}
+                onClick={() => {
+                  let url = `/photos/${photo.id}`;
+                  const params = new URLSearchParams();
+                  
+                  if (eventId) {
+                    params.set('eventId', eventId);
+                  }
+                  
+                  if (searchContext) {
+                    params.set('fromSearch', 'true');
+                    if (searchContext.query) {
+                      params.set('searchQuery', searchContext.query);
+                    }
+                    // Store search filters as JSON
+                    if (Object.keys(searchContext.filters).length > 0) {
+                      params.set('searchFilters', JSON.stringify(searchContext.filters));
+                    }
+                  }
+                  
+                  if (params.toString()) {
+                    url += `?${params.toString()}`;
+                  }
+                  
+                  navigate(url);
+                }}
                 style={{
                   aspectRatio: '1',
                   backgroundColor: '#f0f0f0',

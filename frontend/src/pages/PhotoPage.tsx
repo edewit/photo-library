@@ -24,9 +24,11 @@ export const PhotoPage: React.FC = () => {
   
   const [photo, setPhoto] = useState<Photo | null>(null);
   const [eventPhotos, setEventPhotos] = useState<Photo[]>([]);
+  const [searchPhotos, setSearchPhotos] = useState<Photo[]>([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isFromSearch, setIsFromSearch] = useState(false);
 
   useEffect(() => {
     const fetchPhotoAndEventData = async () => {
@@ -36,19 +38,51 @@ export const PhotoPage: React.FC = () => {
         setLoading(true);
         setError(null);
         
+        // Check if we're coming from search
+        const fromSearch = searchParams.get('fromSearch') === 'true';
+        const searchQuery = searchParams.get('searchQuery');
+        const searchFiltersParam = searchParams.get('searchFilters');
+        
+        setIsFromSearch(fromSearch);
+        
         // Fetch the current photo
         const photoData = await photosAPI.getById(id);
         setPhoto(photoData);
         
-        // If we have an eventId or can get it from the photo, fetch all photos in the event
-        const targetEventId = eventId || photoData.eventId;
-        if (targetEventId) {
-          const eventPhotosData = await eventsAPI.getPhotos(targetEventId);
-          setEventPhotos(eventPhotosData);
-          
-          // Find current photo index in the event photos
-          const index = eventPhotosData.findIndex(p => p.id === id);
-          setCurrentIndex(index);
+        if (fromSearch && (searchQuery || searchFiltersParam)) {
+          // We're coming from search - fetch search results for navigation
+          try {
+            const searchFilters = searchFiltersParam ? JSON.parse(searchFiltersParam) : {};
+            const searchParams = {
+              q: searchQuery || undefined,
+              ...searchFilters,
+              limit: 1000 // Get all results for navigation
+            };
+            
+            const searchResult = await photosAPI.search(searchParams);
+            setSearchPhotos(searchResult.photos);
+            
+            // Find current photo index in search results
+            const index = searchResult.photos.findIndex(p => p.id === id);
+            setCurrentIndex(index);
+          } catch (searchError) {
+            console.error('Failed to fetch search results for navigation:', searchError);
+            // Fall back to event navigation
+            setIsFromSearch(false);
+          }
+        }
+        
+        // If not from search or search failed, use event navigation
+        if (!fromSearch || searchPhotos.length === 0) {
+          const targetEventId = eventId || photoData.eventId;
+          if (targetEventId) {
+            const eventPhotosData = await eventsAPI.getPhotos(targetEventId);
+            setEventPhotos(eventPhotosData);
+            
+            // Find current photo index in the event photos
+            const index = eventPhotosData.findIndex(p => p.id === id);
+            setCurrentIndex(index);
+          }
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load photo');
@@ -58,20 +92,28 @@ export const PhotoPage: React.FC = () => {
     };
 
     fetchPhotoAndEventData();
-  }, [id, eventId]);
+  }, [id, eventId, searchParams]);
 
   // Navigation functions
   const goToPrevious = () => {
-    if (currentIndex > 0 && eventPhotos.length > 0) {
-      const prevPhoto = eventPhotos[currentIndex - 1];
-      navigate(`/photos/${prevPhoto.id}${eventId ? `?eventId=${eventId}` : ''}`);
+    const photosArray = isFromSearch ? searchPhotos : eventPhotos;
+    if (currentIndex > 0 && photosArray.length > 0) {
+      const prevPhoto = photosArray[currentIndex - 1];
+      
+      // Preserve the current URL parameters
+      const currentParams = new URLSearchParams(window.location.search);
+      navigate(`/photos/${prevPhoto.id}?${currentParams.toString()}`);
     }
   };
 
   const goToNext = () => {
-    if (currentIndex < eventPhotos.length - 1 && eventPhotos.length > 0) {
-      const nextPhoto = eventPhotos[currentIndex + 1];
-      navigate(`/photos/${nextPhoto.id}${eventId ? `?eventId=${eventId}` : ''}`);
+    const photosArray = isFromSearch ? searchPhotos : eventPhotos;
+    if (currentIndex < photosArray.length - 1 && photosArray.length > 0) {
+      const nextPhoto = photosArray[currentIndex + 1];
+      
+      // Preserve the current URL parameters
+      const currentParams = new URLSearchParams(window.location.search);
+      navigate(`/photos/${nextPhoto.id}?${currentParams.toString()}`);
     }
   };
 
@@ -86,7 +128,9 @@ export const PhotoPage: React.FC = () => {
         goToNext();
       } else if (event.key === 'Escape') {
         event.preventDefault();
-        if (eventId) {
+        if (isFromSearch) {
+          navigate('/search');
+        } else if (eventId) {
           navigate(`/events/${eventId}`);
         } else {
           navigate('/');
@@ -96,19 +140,22 @@ export const PhotoPage: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentIndex, eventPhotos, eventId, navigate]);
+  }, [currentIndex, eventPhotos, searchPhotos, eventId, isFromSearch, navigate]);
+
+  // Get the appropriate photos array for navigation
+  const navigationPhotos = isFromSearch ? searchPhotos : eventPhotos;
 
   // Preload adjacent photos for smoother navigation
   const { isPreloaded, preloadedCount, isLoading } = usePhotoPreloader({
-    photos: eventPhotos,
+    photos: navigationPhotos,
     currentIndex,
     preloadCount: 2 // Preload 2 photos ahead and behind
   });
 
   // Helper variables
   const hasPrevious = currentIndex > 0;
-  const hasNext = currentIndex < eventPhotos.length - 1 && eventPhotos.length > 0;
-  const showNavigation = eventPhotos.length > 1;
+  const hasNext = currentIndex < navigationPhotos.length - 1 && navigationPhotos.length > 0;
+  const showNavigation = navigationPhotos.length > 1;
 
   if (loading) {
     return (
@@ -146,8 +193,8 @@ export const PhotoPage: React.FC = () => {
                 icon={<AngleLeftIcon />}
                 onClick={goToPrevious}
                 isDisabled={!hasPrevious}
-                title={hasPrevious && eventPhotos[currentIndex - 1] 
-                  ? `${isPreloaded(eventPhotos[currentIndex - 1].id) ? '✓ Ready' : 'Loading...'} - ${eventPhotos[currentIndex - 1].originalName}`
+                title={hasPrevious && navigationPhotos[currentIndex - 1] 
+                  ? `${isPreloaded(navigationPhotos[currentIndex - 1].id) ? '✓ Ready' : 'Loading...'} - ${navigationPhotos[currentIndex - 1].originalName}`
                   : 'No previous photo'
                 }
               >
@@ -156,7 +203,7 @@ export const PhotoPage: React.FC = () => {
             </FlexItem>
             <FlexItem>
               <div style={{ textAlign: 'center', color: '#6a6e73' }}>
-                {currentIndex + 1} of {eventPhotos.length}
+                {currentIndex + 1} of {navigationPhotos.length}
                 {isLoading && (
                   <div style={{ fontSize: '0.75rem', marginTop: '0.25rem', opacity: 0.7 }}>
                     Preloading...
@@ -171,8 +218,8 @@ export const PhotoPage: React.FC = () => {
                 iconPosition="end"
                 onClick={goToNext}
                 isDisabled={!hasNext}
-                title={hasNext && eventPhotos[currentIndex + 1] 
-                  ? `${isPreloaded(eventPhotos[currentIndex + 1].id) ? '✓ Ready' : 'Loading...'} - ${eventPhotos[currentIndex + 1].originalName}`
+                title={hasNext && navigationPhotos[currentIndex + 1] 
+                  ? `${isPreloaded(navigationPhotos[currentIndex + 1].id) ? '✓ Ready' : 'Loading...'} - ${navigationPhotos[currentIndex + 1].originalName}`
                   : 'No next photo'
                 }
               >
