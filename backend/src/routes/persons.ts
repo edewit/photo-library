@@ -256,7 +256,7 @@ router.post('/assign-face', async (req, res) => {
         photoPath,
         faceData,
         personId,
-        person.avatar || null,
+        person.avatar ?? null,
         uploadsDir
       );
       
