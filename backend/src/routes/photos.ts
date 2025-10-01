@@ -188,6 +188,18 @@ router.get('/search', async (req, res) => {
         { 'metadata.camera.model': searchRegex },
         { 'metadata.camera.software': searchRegex }
       );
+      
+      // Also search for person names by finding matching persons and searching by personId
+      try {
+        const { Person } = await import('../models/Person');
+        const matchingPersons = await Person.find({ name: searchRegex });
+        if (matchingPersons.length > 0) {
+          const personIds = matchingPersons.map(p => (p._id as any).toString());
+          textSearchConditions.push({ 'metadata.faces.data.personId': { $in: personIds } });
+        }
+      } catch (error) {
+        console.error('Error searching persons in text search:', error);
+      }
     }
 
     // Event filter
@@ -313,7 +325,21 @@ router.get('/search', async (req, res) => {
     }
     
     if (personName) {
-      query['metadata.faces.data.personName'] = new RegExp(personName as string, 'i');
+      // First find the person by name, then search by personId
+      try {
+        const { Person } = await import('../models/Person');
+        const person = await Person.findOne({ name: new RegExp(personName as string, 'i') });
+        if (person) {
+          query['metadata.faces.data.personId'] = (person._id as any).toString();
+        } else {
+          // If no person found, ensure no results are returned
+          query['metadata.faces.data.personId'] = 'nonexistent';
+        }
+      } catch (error) {
+        console.error('Error finding person by name:', error);
+        // If error occurs, ensure no results are returned
+        query['metadata.faces.data.personId'] = 'nonexistent';
+      }
     }
 
     // Combine all conditions
