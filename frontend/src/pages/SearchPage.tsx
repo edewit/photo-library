@@ -27,6 +27,8 @@ export const SearchPage: React.FC = () => {
         case 'cameraModel':
         case 'cameraMake':
         case 'fileType':
+        case 'personId':
+        case 'personName':
         case 'sortBy':
         case 'sortOrder':
           (filters as any)[key] = value;
@@ -38,6 +40,8 @@ export const SearchPage: React.FC = () => {
         case 'maxWidth':
         case 'minHeight':
         case 'maxHeight':
+        case 'minFaces':
+        case 'maxFaces':
         case 'page':
         case 'limit':
           const numValue = parseInt(value);
@@ -54,6 +58,9 @@ export const SearchPage: React.FC = () => {
           break;
         case 'hasGps':
           filters.hasGps = value === 'true';
+          break;
+        case 'hasFaces':
+          filters.hasFaces = value === 'true';
           break;
       }
     }

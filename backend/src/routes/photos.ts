@@ -162,6 +162,11 @@ router.get('/search', async (req, res) => {
       maxWidth,
       minHeight,
       maxHeight,
+      hasFaces,
+      minFaces,
+      maxFaces,
+      personId,
+      personName,
       sortBy = 'dateTime',
       sortOrder = 'desc',
       page = 1,
@@ -277,6 +282,38 @@ router.get('/search', async (req, res) => {
       if (maxHeight) {
         query['metadata.height'].$lte = parseInt(maxHeight as string);
       }
+    }
+
+    // Face filters
+    if (hasFaces !== undefined) {
+      if (hasFaces === 'true') {
+        query['metadata.faces.count'] = { $gt: 0 };
+      } else if (hasFaces === 'false') {
+        query.$or = [
+          { 'metadata.faces.count': { $eq: 0 } },
+          { 'metadata.faces.detected': { $ne: true } }
+        ];
+      }
+    }
+
+    // Face count range filters
+    if (minFaces || maxFaces) {
+      query['metadata.faces.count'] = {};
+      if (minFaces) {
+        query['metadata.faces.count'].$gte = parseInt(minFaces as string);
+      }
+      if (maxFaces) {
+        query['metadata.faces.count'].$lte = parseInt(maxFaces as string);
+      }
+    }
+
+    // Person filters
+    if (personId) {
+      query['metadata.faces.data.personId'] = personId;
+    }
+    
+    if (personName) {
+      query['metadata.faces.data.personName'] = new RegExp(personName as string, 'i');
     }
 
     // Combine all conditions

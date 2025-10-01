@@ -17,7 +17,7 @@ import {
   NavList,
   NavItem,
 } from '@patternfly/react-core';
-import { MoonIcon, SunIcon, CalendarAltIcon, MapIcon, SearchIcon } from '@patternfly/react-icons';
+import { MoonIcon, SunIcon, CalendarAltIcon, MapIcon, SearchIcon, UsersIcon } from '@patternfly/react-icons';
 import { useTheme } from '../hooks/useTheme';
 
 export const AppHeader: React.FC = () => {
@@ -27,6 +27,7 @@ export const AppHeader: React.FC = () => {
 
   const isEventsPage = location.pathname === '/' || location.pathname.startsWith('/events');
   const isSearchPage = location.pathname === '/search';
+  const isPeoplePage = location.pathname === '/people';
   const isPlacesPage = location.pathname === '/places';
 
   return (
@@ -61,18 +62,31 @@ export const AppHeader: React.FC = () => {
                         <FlexItem>Events</FlexItem>
                       </Flex>
                     </NavItem>
-                    <NavItem 
-                      isActive={isSearchPage}
-                      onClick={() => navigate('/search')}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <Flex alignItems={{ default: 'alignItemsCenter' }}>
-                        <FlexItem spacer={{ default: 'spacerXs' }}>
-                          <SearchIcon />
-                        </FlexItem>
-                        <FlexItem>Search</FlexItem>
-                      </Flex>
-                    </NavItem>
+                      <NavItem 
+                        isActive={isSearchPage}
+                        onClick={() => navigate('/search')}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <Flex alignItems={{ default: 'alignItemsCenter' }}>
+                          <FlexItem spacer={{ default: 'spacerXs' }}>
+                            <SearchIcon />
+                          </FlexItem>
+                          <FlexItem>Search</FlexItem>
+                        </Flex>
+                      </NavItem>
+
+                      <NavItem 
+                        isActive={isPeoplePage}
+                        onClick={() => navigate('/people')}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <Flex alignItems={{ default: 'alignItemsCenter' }}>
+                          <FlexItem spacer={{ default: 'spacerXs' }}>
+                            <UsersIcon />
+                          </FlexItem>
+                          <FlexItem>People</FlexItem>
+                        </Flex>
+                      </NavItem>
                     <NavItem 
                       isActive={isPlacesPage}
                       onClick={() => navigate('/places')}

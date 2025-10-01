@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Card,
@@ -13,12 +13,16 @@ import {
   DescriptionListDescription,
   Flex,
   FlexItem,
+  Tab,
+  Tabs,
+  TabTitleText,
 } from '@patternfly/react-core';
-import { ArrowLeftIcon, MapIcon } from '@patternfly/react-icons';
+import { ArrowLeftIcon, MapIcon, UserIcon } from '@patternfly/react-icons';
 import { format } from 'date-fns';
-import { Photo } from '../types';
-import { photosAPI } from '../services/api';
+import { Photo, FaceData } from '../types';
+import { photosAPI, facesAPI } from '../services/api';
 import { LocationMap } from './LocationMap';
+import { FaceDetector } from './FaceDetector';
 import { isRawFile, getFileTypeDescription } from '../utils/fileUtils';
 
 interface PhotoViewerProps {
@@ -28,6 +32,16 @@ interface PhotoViewerProps {
 export const PhotoViewer: React.FC<PhotoViewerProps> = ({ photo }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<string | number>('photo');
+
+  const handleFacesDetected = async (faces: FaceData[]) => {
+    try {
+      await facesAPI.updatePhotoFaces(photo.id, faces);
+      console.log(`Updated ${faces.length} faces for photo ${photo.id}`);
+    } catch (error) {
+      console.error('Failed to update face data:', error);
+    }
+  };
   const eventId = searchParams.get('eventId');
 
   const formatFileSize = (bytes: number): string => {
@@ -65,55 +79,81 @@ export const PhotoViewer: React.FC<PhotoViewerProps> = ({ photo }) => {
         <GridItem span={12} lg={8}>
           <Card>
             <CardBody>
-              <div style={{ textAlign: 'center' }}>
-                {isRawFile(photo.originalName) ? (
-                  <div>
-                    <img
-                      src={photosAPI.getThumbnailUrl(photo.id)}
-                      alt={photo.originalName}
-                      style={{
-                        maxWidth: '100%',
-                        maxHeight: '60vh',
-                        objectFit: 'contain',
-                      }}
-                    />
-                    <div style={{ 
-                      marginTop: '1rem', 
-                      padding: '1rem', 
-                      backgroundColor: '#f0f0f0', 
-                      borderRadius: '4px',
-                      color: '#666'
-                    }}>
-                      <strong>Raw Camera File</strong><br />
-                      This is a {getFileTypeDescription(photo.originalName)} file. 
-                      Browsers cannot display raw files directly, so a thumbnail preview is shown above.
-                      <br /><br />
-                      <em>To view the full image, download the file and open it in a photo editing application 
-                      like Adobe Lightroom, Capture One, or RawTherapee.</em>
-                      <br /><br />
-                      <Button 
-                        variant="primary" 
-                        component="a" 
-                        href={photosAPI.getFileUrl(photo.id)}
-                        download={photo.originalName}
-                        target="_blank"
-                      >
-                        Download Original File
-                      </Button>
-                    </div>
+              <Tabs
+                activeKey={activeTab}
+                onSelect={(_, tabIndex) => setActiveTab(tabIndex)}
+              >
+                <Tab eventKey="photo" title={<TabTitleText>Photo</TabTitleText>}>
+                  <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+                    {isRawFile(photo.originalName) ? (
+                      <div>
+                        <img
+                          src={photosAPI.getThumbnailUrl(photo.id)}
+                          alt={photo.originalName}
+                          style={{
+                            maxWidth: '100%',
+                            maxHeight: '60vh',
+                            objectFit: 'contain',
+                          }}
+                        />
+                        <div style={{ 
+                          marginTop: '1rem', 
+                          padding: '1rem', 
+                          backgroundColor: '#f0f0f0', 
+                          borderRadius: '4px',
+                          color: '#666'
+                        }}>
+                          <strong>Raw Camera File</strong><br />
+                          This is a {getFileTypeDescription(photo.originalName)} file. 
+                          Browsers cannot display raw files directly, so a thumbnail preview is shown above.
+                          <br /><br />
+                          <em>To view the full image, download the file and open it in a photo editing application 
+                          like Adobe Lightroom, Capture One, or RawTherapee.</em>
+                          <br /><br />
+                          <Button 
+                            variant="primary" 
+                            component="a" 
+                            href={photosAPI.getFileUrl(photo.id)}
+                            download={photo.originalName}
+                            target="_blank"
+                          >
+                            Download Original File
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <img
+                        src={photosAPI.getFileUrl(photo.id)}
+                        alt={photo.originalName}
+                        style={{
+                          maxWidth: '100%',
+                          maxHeight: '80vh',
+                          objectFit: 'contain',
+                        }}
+                      />
+                    )}
                   </div>
-                ) : (
-                  <img
-                    src={photosAPI.getFileUrl(photo.id)}
-                    alt={photo.originalName}
-                    style={{
-                      maxWidth: '100%',
-                      maxHeight: '80vh',
-                      objectFit: 'contain',
-                    }}
-                  />
-                )}
-              </div>
+                </Tab>
+                
+                <Tab 
+                  eventKey="faces" 
+                  title={
+                    <TabTitleText>
+                      <UserIcon style={{ marginRight: '0.5rem' }} />
+                      Face Detection
+                      {photo.metadata.faces?.count ? ` (${photo.metadata.faces.count})` : ''}
+                    </TabTitleText>
+                  }
+                >
+                  <div style={{ marginTop: '1rem' }}>
+                    <FaceDetector 
+                      photo={photo} 
+                      onFacesDetected={handleFacesDetected}
+                      showBoundingBoxes={true}
+                    />
+                  </div>
+                </Tab>
+              </Tabs>
             </CardBody>
           </Card>
         </GridItem>
@@ -197,6 +237,32 @@ export const PhotoViewer: React.FC<PhotoViewerProps> = ({ photo }) => {
                     </DescriptionListDescription>
                   </DescriptionListGroup>
                 )}
+
+                {/* Face Detection Info */}
+                <DescriptionListGroup>
+                  <DescriptionListTerm>
+                    <Flex alignItems={{ default: 'alignItemsCenter' }}>
+                      <FlexItem>
+                        <UserIcon />
+                      </FlexItem>
+                      <FlexItem>Faces</FlexItem>
+                    </Flex>
+                  </DescriptionListTerm>
+                  <DescriptionListDescription>
+                    {photo.metadata.faces?.detected ? (
+                      <>
+                        {photo.metadata.faces.count} face{photo.metadata.faces.count !== 1 ? 's' : ''} detected
+                        {photo.metadata.faces.processedAt && (
+                          <div style={{ fontSize: '0.875rem', color: '#666', marginTop: '0.25rem' }}>
+                            Processed: {format(new Date(photo.metadata.faces.processedAt), 'MMM d, yyyy HH:mm')}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <span style={{ color: '#666' }}>Not processed</span>
+                    )}
+                  </DescriptionListDescription>
+                </DescriptionListGroup>
 
                 {photo.metadata.gps && (
                   <DescriptionListGroup>

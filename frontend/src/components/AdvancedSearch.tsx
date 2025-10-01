@@ -25,8 +25,8 @@ import {
   Title,
 } from '@patternfly/react-core';
 import { SearchIcon, FilterIcon, TimesIcon } from '@patternfly/react-icons';
-import { SearchFilters, SearchResult } from '../types';
-import { photosAPI } from '../services/api';
+import { SearchFilters, SearchResult, Person } from '../types';
+import { photosAPI, personsAPI } from '../services/api';
 import { PhotoGrid } from './PhotoGrid';
 import { useEvents } from '../hooks/useEvents';
 
@@ -53,6 +53,7 @@ export const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAdvancedExpanded, setIsAdvancedExpanded] = useState(false);
+  const [persons, setPersons] = useState<Person[]>([]);
   // Remove unused suggestion state for now - can be added back when implementing autocomplete
   // const [suggestions, setSuggestions] = useState<{ [key: string]: string[] }>({});
   // const [suggestionLoading, setSuggestionLoading] = useState<{ [key: string]: boolean }>({});
@@ -79,6 +80,19 @@ export const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
     }
   }, []);
 
+  // Load persons for dropdown
+  useEffect(() => {
+    const loadPersons = async () => {
+      try {
+        const response = await personsAPI.getAll('name', 'asc');
+        setPersons(response.persons);
+      } catch (err) {
+        console.error('Failed to load persons:', err);
+      }
+    };
+    loadPersons();
+  }, []);
+
   // Debounced search effect
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -94,10 +108,45 @@ export const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
     console.log('Getting suggestions for', type, query);
   };
 
+  // Parse special search queries like "Photos with Erik"
+  const parseSearchQuery = (query: string) => {
+    if (!query) return { q: undefined, personName: undefined };
+    
+    // Check for "Photos with [Name]" pattern
+    const photosWithMatch = query.match(/^photos?\s+with\s+(.+)$/i);
+    if (photosWithMatch) {
+      const personName = photosWithMatch[1].trim();
+      return { q: undefined, personName };
+    }
+    
+    // Check for "with [Name]" pattern
+    const withMatch = query.match(/^with\s+(.+)$/i);
+    if (withMatch) {
+      const personName = withMatch[1].trim();
+      return { q: undefined, personName };
+    }
+    
+    // Regular search query
+    return { q: query, personName: undefined };
+  };
+
   const updateFilter = (key: keyof SearchFilters, value: any) => {
+    let updates: Partial<SearchFilters> = { [key]: value };
+    
+    // Special handling for search query
+    if (key === 'q' && typeof value === 'string') {
+      const parsed = parseSearchQuery(value);
+      updates = {
+        q: parsed.q,
+        personName: parsed.personName,
+        // Clear personId if we're searching by name
+        personId: parsed.personName ? undefined : filters.personId
+      };
+    }
+    
     setFilters(prev => ({
       ...prev,
-      [key]: value,
+      ...updates,
       page: key !== 'page' ? 1 : value // Reset page when changing other filters
     }));
   };
@@ -135,6 +184,14 @@ export const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
     if (filters.minIso) activeFilters.push({ key: 'minIso', label: 'Min ISO', value: filters.minIso.toString() });
     if (filters.maxIso) activeFilters.push({ key: 'maxIso', label: 'Max ISO', value: filters.maxIso.toString() });
     if (filters.hasGps !== undefined) activeFilters.push({ key: 'hasGps', label: 'Has GPS', value: filters.hasGps ? 'Yes' : 'No' });
+    if (filters.hasFaces !== undefined) activeFilters.push({ key: 'hasFaces', label: 'Has Faces', value: filters.hasFaces ? 'With People' : 'No People' });
+    if (filters.minFaces) activeFilters.push({ key: 'minFaces', label: 'Min Faces', value: filters.minFaces.toString() });
+    if (filters.maxFaces) activeFilters.push({ key: 'maxFaces', label: 'Max Faces', value: filters.maxFaces.toString() });
+    if (filters.personId) {
+      const person = persons.find(p => p.id === filters.personId);
+      activeFilters.push({ key: 'personId', label: 'Person', value: person?.name || 'Unknown Person' });
+    }
+    if (filters.personName) activeFilters.push({ key: 'personName', label: 'Person Name', value: filters.personName });
     if (filters.fileType) activeFilters.push({ key: 'fileType', label: 'File Type', value: filters.fileType });
 
     if (activeFilters.length === 0) return null;
@@ -167,7 +224,7 @@ export const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
                     type="text"
                     value={filters.q || ''}
                     onChange={(_, value) => updateFilter('q', value)}
-                    placeholder="Search by filename, camera model, or other metadata..."
+                    placeholder="Search by filename, camera, metadata, or try 'Photos with Erik'..."
                   />
                 </FlexItem>
                 <FlexItem>
@@ -348,6 +405,102 @@ export const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
                       <option value="true">Yes</option>
                       <option value="false">No</option>
                     </select>
+                  </FormGroup>
+                </GridItem>
+
+                {/* Face Filter */}
+                <GridItem md={6} lg={4}>
+                  <FormGroup label="Has Faces" fieldId="has-faces">
+                    <select
+                      id="has-faces"
+                      value={filters.hasFaces === undefined ? 'all' : filters.hasFaces.toString()}
+                      onChange={(e) => {
+                        const value = e.target.value === 'all' ? undefined : e.target.value === 'true';
+                        updateFilter('hasFaces', value);
+                      }}
+                      style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
+                    >
+                      <option value="all">Any</option>
+                      <option value="true">With People</option>
+                      <option value="false">No People</option>
+                    </select>
+                  </FormGroup>
+                </GridItem>
+
+                {/* Face Count Range */}
+                <GridItem md={6} lg={4}>
+                  <FormGroup label="Min Faces" fieldId="min-faces">
+                    <NumberInput
+                      value={filters.minFaces || 0}
+                      onMinus={() => updateFilter('minFaces', Math.max(0, (filters.minFaces || 1) - 1))}
+                      onPlus={() => updateFilter('minFaces', (filters.minFaces || 0) + 1)}
+                      onChange={(event) => {
+                        const value = parseInt((event.target as HTMLInputElement).value);
+                        updateFilter('minFaces', isNaN(value) ? undefined : value);
+                      }}
+                      min={0}
+                      max={20}
+                    />
+                  </FormGroup>
+                </GridItem>
+
+                <GridItem md={6} lg={4}>
+                  <FormGroup label="Max Faces" fieldId="max-faces">
+                    <NumberInput
+                      value={filters.maxFaces || 0}
+                      onMinus={() => updateFilter('maxFaces', Math.max(0, (filters.maxFaces || 5) - 1))}
+                      onPlus={() => updateFilter('maxFaces', (filters.maxFaces || 0) + 1)}
+                      onChange={(event) => {
+                        const value = parseInt((event.target as HTMLInputElement).value);
+                        updateFilter('maxFaces', isNaN(value) ? undefined : value);
+                      }}
+                      min={0}
+                      max={20}
+                    />
+                  </FormGroup>
+                </GridItem>
+
+                {/* Person Filter */}
+                <GridItem md={6} lg={4}>
+                  <FormGroup label="Person" fieldId="person-select">
+                    <select
+                      id="person-select"
+                      value={filters.personId || ''}
+                      onChange={(e) => {
+                        const value = e.target.value || undefined;
+                        updateFilter('personId', value);
+                        // Clear personName when selecting by ID
+                        if (value) {
+                          updateFilter('personName', undefined);
+                        }
+                      }}
+                      style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
+                    >
+                      <option value="">Any person</option>
+                      {persons.map(person => (
+                        <option key={person.id} value={person.id}>
+                          {person.name} ({person.photoCount} photos)
+                        </option>
+                      ))}
+                    </select>
+                  </FormGroup>
+                </GridItem>
+
+                {/* Person Name Search */}
+                <GridItem md={6} lg={4}>
+                  <FormGroup label="Person Name Search" fieldId="person-name">
+                    <TextInput
+                      id="person-name"
+                      value={filters.personName || ''}
+                      onChange={(_event, value) => {
+                        updateFilter('personName', value || undefined);
+                        // Clear personId when searching by name
+                        if (value) {
+                          updateFilter('personId', undefined);
+                        }
+                      }}
+                      placeholder="Search by person name..."
+                    />
                   </FormGroup>
                 </GridItem>
 

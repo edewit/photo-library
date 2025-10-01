@@ -25,6 +25,27 @@ const PhotoMetadataSchema = new Schema({
     exposureTime: { type: String },
     focalLength: { type: Number },
     flash: { type: Boolean }
+  },
+  faces: {
+    count: { type: Number, default: 0 },
+    detected: { type: Boolean, default: false },
+    data: [{
+      boundingBox: {
+        x: { type: Number, required: true },
+        y: { type: Number, required: true },
+        width: { type: Number, required: true },
+        height: { type: Number, required: true }
+      },
+      landmarks: [{
+        x: { type: Number },
+        y: { type: Number }
+      }],
+      descriptor: [{ type: Number }], // 128-dimensional face encoding
+      confidence: { type: Number },
+      personId: { type: Schema.Types.ObjectId, ref: 'Person' }, // Optional: if identified
+      _id: false
+    }],
+    processedAt: { type: Date }
   }
 }, { _id: false });
 

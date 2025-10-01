@@ -7,6 +7,8 @@ import path from 'path';
 import eventRoutes from './routes/events';
 import photoRoutes from './routes/photos';
 import placesRoutes from './routes/places';
+import faceRoutes from './routes/faces';
+import personRoutes from './routes/persons';
 import { createSearchIndexes } from './utils/dbIndexes';
 
 dotenv.config();
@@ -24,6 +26,8 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/api/events', eventRoutes);
 app.use('/api/photos', photoRoutes);
 app.use('/api/places', placesRoutes);
+app.use('/api/faces', faceRoutes);
+app.use('/api/persons', personRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
