@@ -111,7 +111,8 @@ export const PeoplePage: React.FC = () => {
                               width: '80px', 
                               height: '80px', 
                               borderRadius: '50%', 
-                              backgroundColor: '#f0f0f0',
+                              backgroundColor: 'var(--pf-v5-global--BackgroundColor--200)',
+                              color: 'var(--pf-v5-global--Color--200)',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -119,13 +120,24 @@ export const PeoplePage: React.FC = () => {
                             }}>
                               {person.avatar ? (
                                 <img 
-                                  src={person.avatar} 
+                                  src={personsAPI.getAvatarUrl(person.id)} 
                                   alt={person.name}
                                   style={{ 
                                     width: '100%', 
                                     height: '100%', 
                                     borderRadius: '50%',
                                     objectFit: 'cover'
+                                  }}
+                                  onError={(e) => {
+                                    // If avatar fails to load, hide the image and show default icon
+                                    e.currentTarget.style.display = 'none';
+                                    const parent = e.currentTarget.parentElement!;
+                                    parent.innerHTML = '';
+                                    // Create a UserIcon element that will inherit the theme-aware color
+                                    const iconContainer = document.createElement('div');
+                                    iconContainer.style.color = 'inherit';
+                                    iconContainer.innerHTML = '<svg role="img" aria-hidden="true" fill="currentColor" width="2em" height="2em" viewBox="0 0 448 512"><path d="M224 256c70.7 0 128-57.3 128-128S294.7 0 224 0 96 57.3 96 128s57.3 128 128 128zm89.6 32h-16.7c-22.2 10.2-46.9 16-72.9 16s-50.6-5.8-72.9-16h-16.7C60.2 288 0 348.2 0 422.4V464c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48v-41.6c0-74.2-60.2-134.4-134.4-134.4z"></path></svg>';
+                                    parent.appendChild(iconContainer);
                                   }}
                                 />
                               ) : (
