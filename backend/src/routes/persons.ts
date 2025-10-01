@@ -2,6 +2,9 @@ import express, { Router } from 'express';
 import { Person } from '../models/Person';
 import { Photo } from '../models/Photo';
 import { FaceData, PersonSuggestion } from '../types';
+import { updatePersonAvatarIfBetter } from '../utils/avatarGenerator';
+import path from 'path';
+import fs from 'fs/promises';
 
 const router: Router = express.Router();
 
@@ -243,6 +246,28 @@ router.post('/assign-face', async (req, res) => {
       await person.addFaceDescriptor(faceDescriptor);
     }
     
+    // Generate or update person avatar from this face
+    try {
+      const uploadsDir = process.env.UPLOAD_PATH || '../uploads';
+      const photoPath = path.join(uploadsDir, photo.filePath);
+      const faceData = photo.metadata.faces.data[faceIndex];
+      
+      const newAvatarPath = await updatePersonAvatarIfBetter(
+        photoPath,
+        faceData,
+        personId,
+        person.avatar || null,
+        uploadsDir
+      );
+      
+      if (newAvatarPath && newAvatarPath !== person.avatar) {
+        person.avatar = newAvatarPath;
+      }
+    } catch (avatarError) {
+      console.error('Failed to generate avatar for person:', personId, avatarError);
+      // Continue without failing the face assignment
+    }
+    
     // Update person's photo count
     const personPhotoCount = await Photo.countDocuments({
       'metadata.faces.data.personId': personId
@@ -260,7 +285,8 @@ router.post('/assign-face', async (req, res) => {
       person: {
         id: person.id,
         name: person.name,
-        photoCount: person.photoCount
+        photoCount: person.photoCount,
+        avatar: person.avatar
       }
     });
   } catch (error) {
@@ -411,6 +437,31 @@ router.get('/unassigned-faces', async (req, res) => {
   } catch (error) {
     console.error('Error fetching unassigned faces:', error);
     res.status(500).json({ error: 'Failed to fetch unassigned faces' });
+  }
+});
+
+// Serve avatar files
+router.get('/avatar/:personId', async (req, res) => {
+  try {
+    const personId = req.params.personId;
+    
+    // Find the person to get their avatar path
+    const person = await Person.findById(personId);
+    if (!person || !person.avatar) {
+      return res.status(404).json({ error: 'Avatar not found' });
+    }
+    
+    const uploadsDir = process.env.UPLOAD_PATH || '../uploads';
+    const avatarPath = path.join(uploadsDir, person.avatar);
+    
+    // Check if file exists
+    await fs.access(avatarPath);
+    
+    // Serve the avatar file
+    res.sendFile(path.resolve(avatarPath));
+  } catch (error) {
+    console.error('Error serving avatar file:', error);
+    res.status(404).json({ error: 'Avatar file not found' });
   }
 });
 

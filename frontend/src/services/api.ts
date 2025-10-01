@@ -195,6 +195,8 @@ export const personsAPI = {
     
   getUnassignedFaces: (page = 1, limit = 20): Promise<{ faces: Array<{ photoId: string; faceIndex: number; face: FaceData; photo: any }>; pagination: any }> =>
     api.get(`/persons/unassigned-faces?page=${page}&limit=${limit}`).then(res => res.data),
+    
+  getAvatarUrl: (personId: string): string => `/api/persons/avatar/${personId}`,
 };
 
 export default api;
